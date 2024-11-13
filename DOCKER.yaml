@@ -1,0 +1,54 @@
+---
+- hosts: all
+  become: true
+  tasks:
+
+    - name: Installing prerequisites
+      apt:
+        name:
+          - python3-pip
+          - python3-docker
+
+    - name: Installing Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Start Docker service
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add current user to Docker group
+      user:
+        name: "{{ansible_user}}"
+        groups: docker
+        append: yes
+
+    - name: Create a directory for Docker
+      file:
+        path: /home/{{ansible_user}}/Docker_files
+        state: directory
+
+    - name: Create Dockerfile
+      copy:
+        dest: /home/{{ansible_user}}/Docker_files/Dockerfile
+        content: |
+          FROM ubuntu:22.04
+
+          RUN apt-get update
+          RUN apt-get install apache2 -y
+          RUN apt-get install mariadb-server -y
+          COPY . /var/www/html
+
+          EXPOSE 80
+
+          CMD ["apache2ctl","-D","FOREGROUND"]
+
+    - name: Building a Docker Image
+      docker_image:
+        path: /home/{{ansible_user}}/Docker_files
+        name: apache_mariadb_image
+        tag: latest
+        state: present
